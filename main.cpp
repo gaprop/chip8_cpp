@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
+#include <MiniFB.h>
 
 static const short fontSet[80] = {
   0xf0, 0x90, 0x90, 0x90, 0xf0,
@@ -312,5 +313,6 @@ class CPU {
 int main() {
   Chip8Memory mem = Chip8Memory(4096);
   CPU cpu = CPU();
+
   return 0;
 }
