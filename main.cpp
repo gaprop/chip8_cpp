@@ -63,7 +63,16 @@ class Chip8Display : public Display {
       width = w;
       height = h;
       display = new uint32_t[width * height];
-      window = mfb_open_ex("Chip8", width, height, WF_RESIZABLE); // FIXME: Handle error
+      window = mfb_open_ex("Chip8", width, height, WF_RESIZABLE);
+      if (!window) {
+        std::cerr << "Could not open window" << std::endl;
+        exit(1);
+      }
+    }
+
+    ~Chip8Display() {
+      printf("Delete display\n");
+      delete[] display;
     }
 
     struct mfb_window* get_win() {
@@ -143,11 +152,17 @@ class Chip8Memory : public Memory {
 class Chip8Keyboard : public Keyboard {
   private:
     bool keys[16];
+    bool turnoff;
   public:
     Chip8Keyboard() {
       for (size_t i = 0; i < 16; i++) {
         keys[i] = false;
       }
+      turnoff = false;
+    }
+
+    bool turnoff_pressed() {
+      return turnoff;
     }
 
     uint8_t get_key_press() override {
@@ -212,6 +227,9 @@ class Chip8Keyboard : public Keyboard {
           break;
         case KB_KEY_V:
           keys[0xf] = is_pressed;
+          break;
+        case KB_KEY_ESCAPE:
+          turnoff = true;
           break;
       }
     }
@@ -439,10 +457,10 @@ class Machine {
     CPU cpu;
     Memory* mem;
     Display* dis;
-    Keyboard* keys;
+    Chip8Keyboard* keys;
 
   public:
-    Machine(CPU c, Memory* m, Display* d, Keyboard* k) {
+    Machine(CPU c, Memory* m, Display* d, Chip8Keyboard* k) {
       cpu = c;
       mem = m;
       dis = d;
@@ -456,7 +474,7 @@ class Machine {
     }
 
     void run() {
-      while (1) {
+      while (!keys->turnoff_pressed()) {
         step();
       }
     }
@@ -499,14 +517,14 @@ int main(int argc, char** argv) {
   Chip8Memory mem = Chip8Memory(4096);
   Chip8Keyboard key = Chip8Keyboard();
 
+  // Fill memory with the program
   load_file(argv[1], mem);
 
+  // Connect the keyboard from minifb to the Keyboard
   mfb_set_keyboard_callback(dis.get_win(), &key, &Chip8Keyboard::keyboard);
 
   Machine m = Machine(cpu, &mem, &dis, &key);
   m.run();
-
-  std::cin.get();
 
   return 0;
 }
