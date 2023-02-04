@@ -33,9 +33,15 @@ class Memory {
 
 class Display {
   public:
-    virtual bool setDisplay(size_t x, size_t y, uint8_t data) = 0;
-    virtual void clearDisplay() = 0;
+    virtual bool set_display(size_t x, size_t y, uint8_t data) = 0;
+    virtual void clear_display() = 0;
     virtual int render() = 0;
+};
+
+class Keyboard {
+  public:
+    virtual bool is_key_press(size_t key) = 0;
+    virtual uint8_t get_key_press() = 0;
 };
 
 
@@ -53,7 +59,6 @@ class Chip8Display : public Display {
     }
 
   public:
-
     Chip8Display(size_t w, size_t h) {
       width = w;
       height = h;
@@ -61,16 +66,20 @@ class Chip8Display : public Display {
       window = mfb_open_ex("Chip8", width, height, WF_RESIZABLE); // FIXME: Handle error
     }
 
+    struct mfb_window* get_win() {
+       return window;
+    }
+
     int render() override {
       return mfb_update_ex(window, display, width, height);
     }
 
-    void clearDisplay() override {
+    void clear_display() override {
       delete[] display;
       display = new uint32_t[width * height];
     }
 
-    bool setDisplay(size_t x, size_t y, uint8_t data) override {
+    bool set_display(size_t x, size_t y, uint8_t data) override {
       uint32_t pixel = display[getPos(x, y)];
       uint32_t newPixel = (pixel & 0x01) ^ data;
 
@@ -122,9 +131,88 @@ class Chip8Memory : public Memory {
       mem[index + 1] = lo;
     }
 
-    void loadProgram(char* data, size_t size) {
+    void load_program(char* data, size_t size) {
       for (int i = 0; i < size; i++) {
         mem[i + 0x200] = (uint8_t) data[i];
+      }
+    }
+};
+
+
+
+class Chip8Keyboard : public Keyboard {
+  private:
+    bool keys[16];
+  public:
+    Chip8Keyboard() {
+      for (size_t i = 0; i < 16; i++) {
+        keys[i] = false;
+      }
+    }
+
+    uint8_t get_key_press() override {
+      for (uint8_t i = 0; i < 16; i++) {
+        if (keys[i]) {
+          return i;
+        }
+      }
+      return 0xff;
+    }
+    bool is_key_press(size_t key) override { 
+      if (key > 0xf) return false;
+      return keys[key]; 
+    }
+
+    void keyboard(struct mfb_window* window, mfb_key key, mfb_key_mod mod, bool is_pressed) {
+      switch(key) {
+        case KB_KEY_1:
+          keys[0x0] = is_pressed;
+          break;
+        case KB_KEY_2:
+          keys[0x1] = is_pressed;
+          break;
+        case KB_KEY_3:
+          keys[0x2] = is_pressed;
+          break;
+        case KB_KEY_4:
+          keys[0xc] = is_pressed;
+          break;
+        case KB_KEY_Q:
+          keys[0x4] = is_pressed;
+          break;
+        case KB_KEY_W:
+          keys[0x5] = is_pressed;
+          break;
+        case KB_KEY_E:
+          keys[0x6] = is_pressed;
+          break;
+        case KB_KEY_R:
+          keys[0xd] = is_pressed;
+          break;
+        case KB_KEY_A:
+          keys[0x7] = is_pressed;
+          break;
+        case KB_KEY_S:
+          keys[0x8] = is_pressed;
+          break;
+        case KB_KEY_D:
+          keys[0x9] = is_pressed;
+          break;
+        case KB_KEY_F:
+          keys[0xe] = is_pressed;
+          break;
+        case KB_KEY_Z:
+          keys[0xa] = is_pressed;
+          break;
+        case KB_KEY_X:
+          keys[0x0] = is_pressed;
+          break;
+        case KB_KEY_C:
+          keys[0xb] = is_pressed;
+          break;
+        case KB_KEY_V:
+          keys[0xf] = is_pressed;
+          break;
       }
     }
 };
@@ -153,7 +241,12 @@ class CPU {
       }
     }
 
-    void run_op(Memory* mem, Display* dis) {
+    void decreament_timer() {
+      if (DT != 0) DT--;
+      if (ST != 0) ST--;
+    }
+
+    void run_op(Memory* mem, Display* dis, Keyboard* keys) {
       uint32_t op = mem->read16(pc);
       int op_f = op & 0xf000;
       size_t nnn = op & 0x0fff;
@@ -167,7 +260,7 @@ class CPU {
       switch(op_f) {
         case 0x0000: 
           if (op == 0x00e0) {
-            dis->clearDisplay();
+            dis->clear_display();
             break;
           }
           if (op == 0x00ee) {
@@ -272,7 +365,7 @@ class CPU {
             uint8_t byte = mem->read8(I + i);
             for (size_t j = 0; j < 8; j++) {
               int bit = ((byte >> (7 - j)) & 0x01);
-              bool collision = dis->setDisplay(v[x] + j, v[y] + i, bit);
+              bool collision = dis->set_display(v[x] + j, v[y] + i, bit);
               if (collision) {
                 v[0xf] = 1;
               }
@@ -281,12 +374,12 @@ class CPU {
           break;
         case 0xe000:
           if ((0xe000 | x | 0x009e) == op) {
-            // FIXME: Keyboard
-            break;
+            bool is_pressed = keys->is_key_press(v[x]);
+            if (is_pressed) pc++;
           }
           if ((0xe000 | x | 0x00a1) == op) {
-            // FIXME: Keyboard
-            break;
+            bool is_pressed = keys->is_key_press(v[x]);
+            if (!is_pressed) pc++;
           }
           break;
         case 0xf000:
@@ -294,7 +387,11 @@ class CPU {
             v[x] = DT;
           }
           if (kk == 0x0a) {
-            // FIXME: Keyboard
+            uint8_t key;
+            do {
+              key = keys->get_key_press();
+              v[x] = key;
+            } while(key != 0xff);
           }
           if (kk == 0x15) {
             DT = v[x];
@@ -342,17 +439,20 @@ class Machine {
     CPU cpu;
     Memory* mem;
     Display* dis;
+    Keyboard* keys;
 
   public:
-    Machine(CPU c, Memory* m, Display* d) {
+    Machine(CPU c, Memory* m, Display* d, Keyboard* k) {
       cpu = c;
       mem = m;
       dis = d;
+      keys = k;
     }
 
     void step() {
-      cpu.run_op(mem, dis);
+      cpu.run_op(mem, dis, keys);
       dis->render();
+      cpu.decreament_timer();
     }
 
     void run() {
@@ -368,6 +468,9 @@ int main(int argc, char** argv) {
   CPU cpu = CPU();
   Chip8Display dis = Chip8Display(64, 32);
   Chip8Memory mem = Chip8Memory(4096);
+  Chip8Keyboard key = Chip8Keyboard();
+
+  mfb_set_keyboard_callback(dis.get_win(), &key, &Chip8Keyboard::keyboard);
 
   // FIXME: Perpahs throw this into a function
   FILE* fp = fopen(argv[1], "rb");
@@ -392,28 +495,12 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  // char buf[14];
-  // size_t rom_size = 14;
-  // buf[0] = 0x60; // load v[0] = 0x10
-  // buf[1] = 0x10;
-  // buf[2] = 0x61; // load v[1] = 0x10
-  // buf[3] = 0x10;
-  // buf[4] = 0x62; // load v[2] = 0x80
-  // buf[5] = 0x01;
-  // buf[6] = 0xaf; // load I = 0xf00;
-  // buf[7] = 0x00;
-  // buf[8] = 0xf2; // load mem[I..I+2] = v[0]..v[2]
-  // buf[9] = 0x55;
-  // buf[10] = 0xaf; // load I = 0xf02;
-  // buf[11] = 0x01;
-  // buf[12] = 0xd0; // draw
-  // buf[13] = 0x11;
-  mem.loadProgram(buf, rom_size);
+  mem.load_program(buf, rom_size);
 
   fclose(fp);
   free(buf);
 
-  Machine m = Machine(cpu, &mem, &dis);
+  Machine m = Machine(cpu, &mem, &dis, &key);
   m.run();
   // for (int i = 0; i < 14; i++) {
     // m.step();
