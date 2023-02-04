@@ -235,7 +235,7 @@ class CPU {
           }
           if (n == 0x6) {
             v[0xf] = v[x] & 0x01;
-            v[x] = v[x] >> 1;
+            v[x] >>= 1;
           }
           if (n == 0x7) {
             if (v[y] > v[x]) {
@@ -247,7 +247,7 @@ class CPU {
           }
           if (n == 0xe) {
             v[0xf] = v[x] & 0x80;
-            v[x] <<= 2;
+            v[x] <<= 1;
           }
           break;
         case 0x9000:
