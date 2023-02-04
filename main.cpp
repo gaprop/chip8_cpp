@@ -462,21 +462,11 @@ class Machine {
     }
 };
 
-
-
-int main(int argc, char** argv) {
-  CPU cpu = CPU();
-  Chip8Display dis = Chip8Display(64, 32);
-  Chip8Memory mem = Chip8Memory(4096);
-  Chip8Keyboard key = Chip8Keyboard();
-
-  mfb_set_keyboard_callback(dis.get_win(), &key, &Chip8Keyboard::keyboard);
-
-  // FIXME: Perpahs throw this into a function
-  FILE* fp = fopen(argv[1], "rb");
+void load_file(char* filename, Chip8Memory& mem) {
+  FILE* fp = fopen(filename, "rb");
   if (fp == NULL) {
     std::cerr << "Failed to open rom" << std::endl;
-    return 1;
+    return;
   }
 
   fseek(fp, 0, SEEK_END);
@@ -486,25 +476,35 @@ int main(int argc, char** argv) {
   char* buf = (char*) malloc(sizeof(char) * rom_size);
   if (buf == NULL) {
     std::cerr << "Failed to allocate memory for rom" << std::endl;
-    return 1;
+    return;
   }
 
   size_t result = fread(buf, sizeof(char), (size_t)rom_size, fp);
   if (result != rom_size) {
     std::cerr << "Failed to read rom" << std::endl;
-    return 1;
+    return;
   }
 
   mem.load_program(buf, rom_size);
 
   fclose(fp);
   free(buf);
+}
+
+
+
+int main(int argc, char** argv) {
+  CPU cpu = CPU();
+  Chip8Display dis = Chip8Display(64, 32);
+  Chip8Memory mem = Chip8Memory(4096);
+  Chip8Keyboard key = Chip8Keyboard();
+
+  load_file(argv[1], mem);
+
+  mfb_set_keyboard_callback(dis.get_win(), &key, &Chip8Keyboard::keyboard);
 
   Machine m = Machine(cpu, &mem, &dis, &key);
   m.run();
-  // for (int i = 0; i < 14; i++) {
-    // m.step();
-  // }
 
   std::cin.get();
 
