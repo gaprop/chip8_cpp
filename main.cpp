@@ -166,13 +166,13 @@ class Chip8Keyboard : public Keyboard {
     void keyboard(struct mfb_window* window, mfb_key key, mfb_key_mod mod, bool is_pressed) {
       switch(key) {
         case KB_KEY_1:
-          keys[0x0] = is_pressed;
-          break;
-        case KB_KEY_2:
           keys[0x1] = is_pressed;
           break;
-        case KB_KEY_3:
+        case KB_KEY_2:
           keys[0x2] = is_pressed;
+          break;
+        case KB_KEY_3:
+          keys[0x3] = is_pressed;
           break;
         case KB_KEY_4:
           keys[0xc] = is_pressed;
