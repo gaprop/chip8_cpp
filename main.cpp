@@ -375,11 +375,11 @@ class CPU {
         case 0xe000:
           if ((0xe000 | x | 0x009e) == op) {
             bool is_pressed = keys->is_key_press(v[x]);
-            if (is_pressed) pc++;
+            if (is_pressed) pc += 2;
           }
           if ((0xe000 | x | 0x00a1) == op) {
             bool is_pressed = keys->is_key_press(v[x]);
-            if (!is_pressed) pc++;
+            if (!is_pressed) pc += 2;
           }
           break;
         case 0xf000:
