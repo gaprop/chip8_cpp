@@ -50,7 +50,7 @@ class Chip8Display : public Display {
   public:
     size_t width;
     size_t height;
-    uint32_t* display; // FIXME: Needs to be 32bit
+    uint32_t* display;
     struct mfb_window* window;
 
   private:
@@ -422,7 +422,6 @@ class CPU {
           }
           if (kk == 0x29) {
             if (v[x] > 0x0f) {
-              // throw exception..
               break;
             }
             I = v[x];
@@ -454,13 +453,13 @@ class CPU {
 
 class Machine {
   private:
-    CPU cpu;
+    CPU* cpu;
     Memory* mem;
     Display* dis;
     Chip8Keyboard* keys;
 
   public:
-    Machine(CPU c, Memory* m, Display* d, Chip8Keyboard* k) {
+    Machine(CPU* c, Memory* m, Display* d, Chip8Keyboard* k) {
       cpu = c;
       mem = m;
       dis = d;
@@ -468,9 +467,9 @@ class Machine {
     }
 
     void step() {
-      cpu.run_op(mem, dis, keys);
+      cpu->run_op(mem, dis, keys);
       dis->render();
-      cpu.decreament_timer();
+      cpu->decreament_timer();
     }
 
     void run() {
@@ -523,7 +522,7 @@ int main(int argc, char** argv) {
   // Connect the keyboard from minifb to the Keyboard
   mfb_set_keyboard_callback(dis.get_win(), &key, &Chip8Keyboard::keyboard);
 
-  Machine m = Machine(cpu, &mem, &dis, &key);
+  Machine m = Machine(&cpu, &mem, &dis, &key);
   m.run();
 
   return 0;
